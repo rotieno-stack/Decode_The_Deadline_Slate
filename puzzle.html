@@ -1,0 +1,427 @@
+<!--
+  Decode the Deadline -- Slate edition.
+  Paste this whole file into a Slate page's HTML/source area (or host it
+  anywhere and iframe it). Before publishing, edit the two URLs in CONFIG
+  near the bottom of this file. The solution is NOT in this file.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+#ddl {
+  --bg: #0e1116; --panel: #171b22; --panel-border: #272d38;
+  --text: #edeff2; --text-dim: #8a93a6;
+  --accent: #ff6c0c; --accent-dim: #c2530a;
+  --success: #4caf7d; --error: #e2715c;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --serif: 'Spectral', Georgia, serif;
+  background: var(--bg); color: var(--text); font-family: var(--mono);
+  padding: 48px 20px 80px; line-height: normal; text-align: left;
+}
+#ddl, #ddl * { box-sizing: border-box; }
+#ddl button { font-family: var(--mono); }
+#ddl .ddl-page { max-width: 880px; margin: 0 auto; }
+
+#ddl .ddl-masthead { text-align: center; margin-bottom: 48px; }
+#ddl .ddl-kicker { margin: 0 0 10px; font-size: 0.9rem; color: var(--text-dim); font-style: italic; font-family: var(--serif); }
+#ddl .ddl-title { margin: 0 0 14px; font-family: var(--serif); font-weight: 600; font-size: clamp(2.2rem, 5vw, 3rem); letter-spacing: 0.01em; color: var(--text); }
+#ddl .ddl-subtitle { margin: 0 auto; color: var(--text-dim); font-size: 0.95rem; max-width: 46ch; }
+
+#ddl .ddl-board { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 28px; align-items: start; margin-bottom: 28px; }
+@media (max-width: 720px) { #ddl .ddl-board { grid-template-columns: 1fr; } }
+
+#ddl .ddl-grid-panel, #ddl .ddl-side-panel, #ddl .ddl-log-panel {
+  background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px; padding: 22px;
+}
+
+#ddl .ddl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+#ddl .ddl-cell {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; font-weight: 500; background: #11151b; border: 1px solid var(--panel-border);
+  border-radius: 6px; color: var(--text); cursor: pointer; position: relative;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+}
+#ddl .ddl-cell.diagonal::after {
+  content: ""; position: absolute; left: 50%; bottom: 7px; width: 16px; height: 2px;
+  background: var(--accent-dim); transform: translateX(-50%); border-radius: 2px; opacity: 0.6;
+}
+#ddl .ddl-cell.given { color: var(--text-dim); cursor: default; background: #0d1015; }
+#ddl .ddl-cell.solved { color: var(--accent); border-color: var(--accent-dim); cursor: default; }
+#ddl .ddl-cell.selected { border-color: var(--accent); background: #191113; }
+#ddl .ddl-cell:not(.given):not(.solved):hover { border-color: #3a4150; }
+#ddl .ddl-cell:active:not(.given):not(.solved) { transform: scale(0.97); }
+
+#ddl .ddl-keypad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; margin-bottom: 16px; }
+#ddl .ddl-digit {
+  font-size: 1rem; padding: 10px 0; background: #11151b; border: 1px solid var(--panel-border);
+  border-radius: 6px; color: var(--text); cursor: pointer; transition: border-color 120ms ease, color 120ms ease;
+}
+#ddl .ddl-digit:hover { border-color: var(--accent); color: var(--accent); }
+#ddl .ddl-digit:disabled { opacity: 0.3; cursor: not-allowed; }
+
+#ddl .ddl-hint-row { margin: 0; }
+#ddl .ddl-ghost {
+  width: 100%; font-size: 0.85rem; padding: 10px 14px; background: transparent;
+  border: 1px solid var(--panel-border); border-radius: 6px; color: var(--text-dim); cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+#ddl .ddl-ghost:hover:not(:disabled) { border-color: var(--text-dim); color: var(--text); }
+#ddl .ddl-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#ddl .ddl-heading { margin: 0 0 14px; font-family: var(--mono); font-size: 0.85rem; font-weight: 600; color: var(--text-dim); }
+#ddl .ddl-clues { margin: 0; padding-left: 1.3em; font-size: 0.92rem; line-height: 1.6; color: var(--text); }
+#ddl .ddl-clues li { margin-bottom: 10px; }
+#ddl .ddl-clues li::marker { color: var(--text-dim); }
+
+#ddl .ddl-log-panel { margin-bottom: 28px; }
+#ddl .ddl-log { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; font-size: 0.88rem; }
+#ddl .ddl-log-line { margin: 0; line-height: 1.5; }
+#ddl .ddl-log-line--muted { color: var(--text-dim); }
+#ddl .ddl-log-line--good { color: var(--success); }
+#ddl .ddl-log-line--bad { color: var(--error); }
+#ddl .ddl-log-line--hint { color: var(--accent); }
+
+#ddl .ddl-reveal {
+  text-align: center; padding: 40px 20px; border: 1px solid var(--accent-dim); border-radius: 10px;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 108, 12, 0.08), transparent 70%);
+}
+#ddl .ddl-reveal[hidden] { display: none; }
+#ddl .ddl-reveal-kicker { margin: 0 0 10px; font-size: 0.85rem; color: var(--text-dim); letter-spacing: 0.02em; }
+#ddl .ddl-reveal-time { margin: 0 0 10px; font-family: var(--serif); font-size: clamp(2.4rem, 7vw, 3.6rem); font-weight: 600; color: var(--accent); }
+#ddl .ddl-reveal-sub { margin: 0; color: var(--text-dim); font-size: 0.9rem; }
+
+#ddl :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { #ddl * { transition: none !important; } }
+</style>
+
+<div id="ddl">
+  <main class="ddl-page">
+
+    <header class="ddl-masthead">
+      <p class="ddl-kicker">A Caltech REA puzzle</p>
+      <h1 class="ddl-title">Decode the Deadline</h1>
+      <p class="ddl-subtitle">Fill the grid. The diagonal holds the moment decisions release.</p>
+    </header>
+
+    <section class="ddl-board">
+      <div class="ddl-grid-panel">
+        <div class="ddl-grid" id="ddl-grid"></div>
+        <div class="ddl-keypad" id="ddl-keypad"></div>
+        <p class="ddl-hint-row">
+          <button class="ddl-ghost" id="ddl-hint-btn" type="button">Hint for selected cell</button>
+        </p>
+      </div>
+
+      <aside class="ddl-side-panel">
+        <h2 class="ddl-heading">Clues</h2>
+        <ol class="ddl-clues" id="ddl-clues"></ol>
+      </aside>
+    </section>
+
+    <section class="ddl-log-panel">
+      <h2 class="ddl-heading">Log</h2>
+      <div class="ddl-log" id="ddl-log">
+        <p class="ddl-log-line ddl-log-line--muted">Select a cell, then choose a digit.</p>
+      </div>
+    </section>
+
+    <section class="ddl-reveal" id="ddl-reveal" hidden>
+      <p class="ddl-reveal-kicker">Grid complete</p>
+      <p class="ddl-reveal-time" id="ddl-reveal-time"></p>
+      <p class="ddl-reveal-sub">REA decisions release at this moment.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ======================= CONFIG: EDIT THESE =======================
+  var CONFIG = {
+    // Paste the full endpoint URLs shown on each Slate query's
+    // "Web Services" link (JSON service type). Do NOT add row/col/value;
+    // the script appends them.
+    GUESS_URL: 'PASTE_GUESS_ENDPOINT_HERE',
+    HINT_URL:  'PASTE_HINT_ENDPOINT_HERE',
+
+    // Must match the custom parameter names in the Slate queries.
+    PARAM_ROW: 'row', PARAM_COL: 'col', PARAM_VALUE: 'value',
+
+    // 'auto' tries fetch() first and falls back to JSONP; or force 'fetch' / 'jsonp'.
+    TRANSPORT: 'auto',
+
+    // Slate rate-limits web services per database, so cap hint usage.
+    MAX_HINTS: 3,
+
+    TIME_ZONE_LABEL: 'PST'
+  };
+
+  // Public information only: givens (0-indexed) and clues.
+  var SIZE = 3;
+  var GIVENS = [ { row: 1, col: 1, value: 9 }, { row: 2, col: 0, value: 6 } ];
+  var CLUES = [
+    'Every number in the grid is a single digit (1-9).',
+    'The top row contains only PRIME numbers.',
+    'The top row contains only ODD numbers.',
+    'Exactly one number in the middle row is prime, and it sits in the leftmost column.',
+    'The bottom row contains no prime numbers at all.',
+    'The largest prime in the whole grid sits in the top-left cell.',
+    'Within the top row, the smallest value sits in the middle cell.',
+    'Every entry on the main diagonal (top-left to bottom-right) is odd.',
+    'The bottom-middle cell is exactly double the middle-right cell.'
+  ];
+  // ==================================================================
+
+  var root = document.getElementById('ddl');
+  var gridEl = document.getElementById('ddl-grid');
+  var keypadEl = document.getElementById('ddl-keypad');
+  var clueListEl = document.getElementById('ddl-clues');
+  var logEl = document.getElementById('ddl-log');
+  var hintBtn = document.getElementById('ddl-hint-btn');
+  var revealEl = document.getElementById('ddl-reveal');
+  var revealTimeEl = document.getElementById('ddl-reveal-time');
+
+  var state = {
+    grid: [], given: [], usedValues: {}, selected: null,
+    wrongTried: {}, hintsUsed: 0, hintCache: {}, busy: false
+  };
+  for (var i = 0; i < SIZE; i++) {
+    state.grid.push([null, null, null]);
+    state.given.push([false, false, false]);
+  }
+
+  function log(message, kind) {
+    var p = document.createElement('p');
+    p.className = 'ddl-log-line' + (kind ? ' ddl-log-line--' + kind : '');
+    p.textContent = message;
+    logEl.appendChild(p);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ---------- Slate web service calls ----------
+
+  function buildUrl(base, params) {
+    var u = new URL(base, window.location.href);
+    Object.keys(params).forEach(function (k) { u.searchParams.set(k, params[k]); });
+    return u.toString();
+  }
+
+  function fetchJson(url) {
+    return fetch(url, { credentials: 'omit' }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    });
+  }
+
+  var jsonpCounter = 0;
+  function jsonp(url) {
+    return new Promise(function (resolve, reject) {
+      var name = '__ddlCb' + (++jsonpCounter);
+      var script = document.createElement('script');
+      var timer = setTimeout(function () { cleanup(); reject(new Error('timeout')); }, 10000);
+      function cleanup() {
+        clearTimeout(timer);
+        try { delete window[name]; } catch (e) { window[name] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+      window[name] = function (data) { cleanup(); resolve(data); };
+      script.onerror = function () { cleanup(); reject(new Error('script error')); };
+      var u = new URL(url);
+      u.searchParams.set('callback', name);
+      script.src = u.toString();
+      document.head.appendChild(script);
+    });
+  }
+
+  function callService(base, params) {
+    var url = buildUrl(base, params);
+    if (CONFIG.TRANSPORT === 'jsonp') return jsonp(url);
+    if (CONFIG.TRANSPORT === 'fetch') return fetchJson(url);
+    return fetchJson(url).catch(function () { return jsonp(url); });
+  }
+
+  // Slate's JSON shape can vary with the query, so search for the key.
+  function findKey(obj, key) {
+    if (obj === null || typeof obj !== 'object') return undefined;
+    if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+    var keys = Object.keys(obj);
+    for (var i = 0; i < keys.length; i++) {
+      var found = findKey(obj[keys[i]], key);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  }
+  function truthy(v) {
+    return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+  }
+  function configured() {
+    return CONFIG.GUESS_URL.indexOf('PASTE_') !== 0 && CONFIG.HINT_URL.indexOf('PASTE_') !== 0;
+  }
+
+  // ---------- rendering ----------
+
+  function renderGrid() {
+    gridEl.innerHTML = '';
+    for (var r = 0; r < SIZE; r++) {
+      for (var c = 0; c < SIZE; c++) {
+        (function (r, c) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ddl-cell' + (r === c ? ' diagonal' : '');
+          var value = state.grid[r][c];
+          if (value !== null) {
+            btn.textContent = value;
+            btn.className += state.given[r][c] ? ' given' : ' solved';
+            btn.setAttribute('aria-label', 'Row ' + (r + 1) + ', column ' + (c + 1) + ': ' + value);
+          } else {
+            btn.setAttribute('aria-label', 'Row ' + (r + 1) + ', column ' + (c + 1) + ': empty');
+            btn.addEventListener('click', function () { selectCell(r, c); });
+          }
+          if (state.selected && state.selected.row === r && state.selected.col === c) {
+            btn.className += ' selected';
+          }
+          gridEl.appendChild(btn);
+        })(r, c);
+      }
+    }
+  }
+
+  function renderKeypad() {
+    keypadEl.innerHTML = '';
+    for (var v = 1; v <= 9; v++) {
+      (function (v) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ddl-digit';
+        btn.textContent = String(v);
+        btn.disabled = !!state.usedValues[v];
+        btn.addEventListener('click', function () { submitGuess(v); });
+        keypadEl.appendChild(btn);
+      })(v);
+    }
+  }
+
+  function selectCell(r, c) { state.selected = { row: r, col: c }; renderGrid(); }
+
+  // ---------- actions ----------
+
+  function submitGuess(value) {
+    if (state.busy) return;
+    if (!state.selected) { log('Select an empty cell first.', 'muted'); return; }
+    if (!configured()) { log('Setup incomplete: the Slate endpoints have not been set.', 'bad'); return; }
+
+    var row = state.selected.row, col = state.selected.col;
+    var label = 'row ' + (row + 1) + ', col ' + (col + 1);
+
+    if (state.usedValues[value]) { log(value + ' is already placed elsewhere in the grid.', 'muted'); return; }
+
+    var key = row + '-' + col + '-' + value;
+    if (state.wrongTried[key]) { log('Already tried ' + value + ' in ' + label + '. It belongs elsewhere.', 'muted'); return; }
+
+    var params = {};
+    params[CONFIG.PARAM_ROW] = row;
+    params[CONFIG.PARAM_COL] = col;
+    params[CONFIG.PARAM_VALUE] = value;
+
+    state.busy = true;
+    callService(CONFIG.GUESS_URL, params).then(function (data) {
+      var result = findKey(data, 'correct');
+      if (result === undefined) throw new Error('unexpected response');
+      if (truthy(result)) {
+        state.grid[row][col] = value;
+        state.usedValues[value] = true;
+        state.selected = null;
+        log(label + ' = ' + value + '. Correct.', 'good');
+        renderGrid(); renderKeypad(); checkComplete();
+      } else {
+        state.wrongTried[key] = true;
+        // Every unused digit 1-9 belongs somewhere in the grid, so a wrong
+        // guess means "right digit, wrong cell".
+        log('Not ' + label + ': ' + value + ' belongs somewhere else in the grid.', 'bad');
+      }
+    }).catch(function () {
+      log('Could not reach the server. Try again in a moment.', 'bad');
+    }).then(function () { state.busy = false; });
+  }
+
+  function requestHint() {
+    if (state.busy) return;
+    if (!state.selected) { log('Select an empty cell first.', 'muted'); return; }
+    if (!configured()) { log('Setup incomplete: the Slate endpoints have not been set.', 'bad'); return; }
+
+    var row = state.selected.row, col = state.selected.col;
+    var label = 'row ' + (row + 1) + ', col ' + (col + 1);
+    var key = row + '-' + col;
+
+    if (state.hintCache[key]) { log('Hint for ' + label + ': ' + state.hintCache[key] + '.', 'hint'); return; }
+    if (state.hintsUsed >= CONFIG.MAX_HINTS) {
+      log('No hints left (' + CONFIG.MAX_HINTS + ' per session).', 'muted');
+      hintBtn.disabled = true;
+      return;
+    }
+
+    var params = {};
+    params[CONFIG.PARAM_ROW] = row;
+    params[CONFIG.PARAM_COL] = col;
+
+    state.busy = true;
+    callService(CONFIG.HINT_URL, params).then(function (data) {
+      var odd = findKey(data, 'odd'), prime = findKey(data, 'prime');
+      if (odd === undefined || prime === undefined) throw new Error('unexpected response');
+      var text = (truthy(odd) ? 'odd' : 'even') + ', ' + (truthy(prime) ? 'prime' : 'not prime');
+      state.hintCache[key] = text;
+      state.hintsUsed++;
+      log('Hint for ' + label + ': ' + text + '. (' + (CONFIG.MAX_HINTS - state.hintsUsed) + ' left)', 'hint');
+      if (state.hintsUsed >= CONFIG.MAX_HINTS) hintBtn.disabled = true;
+    }).catch(function () {
+      log('Could not reach the server. Try again in a moment.', 'bad');
+    }).then(function () { state.busy = false; });
+  }
+
+  function checkComplete() {
+    for (var r = 0; r < SIZE; r++)
+      for (var c = 0; c < SIZE; c++)
+        if (state.grid[r][c] === null) return;
+
+    // Diagonal decode: d1 = hour, d2 x 5 = minutes, d3 parity = AM (odd) / PM (even).
+    var d1 = state.grid[0][0], d2 = state.grid[1][1], d3 = state.grid[2][2];
+    var minute = String(d2 * 5); if (minute.length < 2) minute = '0' + minute;
+    var period = d3 % 2 === 1 ? 'AM' : 'PM';
+
+    revealTimeEl.textContent = d1 + ':' + minute + ' ' + period + ' ' + CONFIG.TIME_ZONE_LABEL;
+    revealEl.hidden = false;
+    if (revealEl.scrollIntoView) revealEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    log('Grid complete. Release time decoded above.', 'good');
+  }
+
+  // ---------- init ----------
+
+  GIVENS.forEach(function (g) {
+    state.grid[g.row][g.col] = g.value;
+    state.given[g.row][g.col] = true;
+    state.usedValues[g.value] = true;
+  });
+  CLUES.forEach(function (clue) {
+    var li = document.createElement('li');
+    li.textContent = clue;
+    clueListEl.appendChild(li);
+  });
+
+  renderGrid();
+  renderKeypad();
+  hintBtn.addEventListener('click', requestHint);
+
+  // Keyboard digits, only while the pointer/focus is on the puzzle, so we
+  // never interfere with other Slate page fields.
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (!root.contains(document.activeElement) && document.activeElement !== document.body) return;
+    var n = Number(e.key);
+    if (e.key.length === 1 && n >= 1 && n <= 9) submitGuess(n);
+  });
+})();
+</script>
